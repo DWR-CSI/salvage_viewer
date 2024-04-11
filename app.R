@@ -14,8 +14,7 @@ ui <- fluidPage(
       fileInput("file", "Choose Excel File",
         accept = c(".xlsx")
       ),
-      selectInput("color", "Select color variable:", choices = NULL),
-      downloadButton("downloadPlot", "Download Plot")
+      selectInput("color", "Select color variable:", choices = NULL)
     ),
     mainPanel(
       plotlyOutput("plot")
@@ -103,16 +102,6 @@ server <- function(input, output, session) {
   output$plot <- renderPlotly({
     p()
   })
-
-  # Download the plot as a PNG file
-  output$downloadPlot <- downloadHandler(
-    filename = function() {
-      paste("plot", ".png", sep = "")
-    },
-    content = function(file) {
-      plotly::export(p(), file = file, width = 800, height = 600)
-    }
-  )
 }
 
 
