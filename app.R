@@ -3,6 +3,7 @@ library(shiny)
 library(tidyverse)
 library(readxl)
 library(lubridate)
+library(plotly)
 
 
 # Define UI for application
@@ -13,60 +14,22 @@ ui <- fluidPage(
       fileInput("file", "Choose Excel File",
         accept = c(".xlsx")
       ),
-      selectInput("x", "Select x-axis variable:", choices = NULL),
-      selectInput("y", "Select y-axis variable:", choices = NULL),
       selectInput("color", "Select color variable:", choices = NULL),
       downloadButton("downloadPlot", "Download Plot")
     ),
     mainPanel(
-      plotOutput("plot")
+      plotlyOutput("plot")
     )
   ),
-  p("Note: This app is designed to work with the SHERLOCK ONCOR results Excel data file. Pending QA/QC samples and samples that are heterozygous pending a Fluidigm run are excluded from the visualization. Fluidigm run-type assignments are not distinguished here from normal SHERLOCK data.")
+  p("Note: This app is designed to work with the SHERLOCK ONCOR results Excel data file.
+  Pending QA/QC samples and samples that are heterozygous pending a Fluidigm run are excluded from the visualization.
+  Fluidigm run-type assignments are not distinguished here from normal SHERLOCK data.")
 )
 
 # Define server logic
 server <- function(input, output, session) {
   # Read in static LAD data
-  lad <- read_tsv("data\\LengthCriteriaDelta_sheet1.txt") %>%
-    mutate_all(~ ifelse(. == "*", NA, .)) %>%
-    mutate(year = ifelse(row_number() <= 184, 2023, 2024)) %>%
-    select(
-      month = 1,
-      day = 2,
-      w23_min = 3,
-      w23_max = 4,
-      w22_min = 5,
-      w22_max = 6,
-      lf_min = 8,
-      lf_max = 9,
-      f22_min = 11,
-      f22_max = 12,
-      f23_min = 13,
-      f23_max = 14,
-      s22_min = 16,
-      s22_max = 17,
-      s23_min = 18,
-      s23_max = 19,
-      year = year
-    ) %>%
-    mutate(
-      date = lubridate::ymd(paste(year, month, day, sep = "-")),
-      w23_min = as.numeric(w23_min),
-      w23_max = as.numeric(w23_max),
-      w22_min = as.numeric(w22_min),
-      w22_max = as.numeric(w22_max),
-      lf_min = as.numeric(lf_min),
-      lf_max = as.numeric(lf_max),
-      f22_min = as.numeric(f22_min),
-      f22_max = as.numeric(f22_max),
-      f23_min = as.numeric(f23_min),
-      f23_max = as.numeric(f23_max),
-      s22_min = as.numeric(s22_min),
-      s22_max = as.numeric(s22_max),
-      s23_min = as.numeric(s23_min),
-      s23_max = as.numeric(s23_max)
-    )
+  lad_long <- read_tsv("data/lad_long.txt")
 
   data <- reactive({
     req(input$file)
@@ -88,8 +51,6 @@ server <- function(input, output, session) {
 
   observe({ # Update selectInput choices when data is loaded
     req(data())
-    updateSelectInput(session, "x", choices = names(data()), select = "Sample.Date")
-    updateSelectInput(session, "y", choices = names(data()), select = "Fork.Length")
     updateSelectInput(session, "color", choices = c(
       "SHERLOCK.Assignment",
       "SHERLOCK.Group",
@@ -105,16 +66,41 @@ server <- function(input, output, session) {
   })
 
   p <- reactive({
-    req(data(), input$x, input$y, input$color)
-    p <- ggplot(data(), aes_string(x = input$x, y = input$y, color = input$color)) +
-      geom_point(size = 3, alpha = 0.6) +
-      scale_color_brewer(palette = "Set1") +
-      theme_bw()
+    req(data(), input$color)
 
-    ggplotly(p)
+    p <- plot_ly() %>%
+      add_markers(
+        data = data(),
+        x = ~SampleDate,
+        y = ~ForkLength,
+        color = ~ get(input$color),
+        colors = "Paired",
+        text = ~ID,
+        size = I(20),
+        alpha = 0.8
+      ) %>%
+      add_ribbons( # Add ribbons for min/max values overlaid on top of fork length
+        data = lad_long,
+        x = ~date,
+        ymin = ~min,
+        ymax = ~max,
+        color = ~cohort,
+        showlegend = TRUE,
+        alpha = 0.2,
+        size = 0.1,
+        line = list(width = 0)
+      ) %>%
+      layout(
+        title = "SHERLOCK Excel Data Visualization",
+        xaxis = list(title = "Sample Date", range = c(as.Date("2023-12-25"), NULL)), # not working
+        yaxis = list(title = "Fork Length"),
+        showlegend = TRUE
+      )
+
+    p
   })
 
-  output$plot <- renderPlot({
+  output$plot <- renderPlotly({
     p()
   })
 
@@ -124,7 +110,7 @@ server <- function(input, output, session) {
       paste("plot", ".png", sep = "")
     },
     content = function(file) {
-      ggsave(file, plot = p(), device = "png", width = 8, height = 6, units = "in", dpi = 300)
+      plotly::export(p(), file = file, width = 800, height = 600)
     }
   )
 }
