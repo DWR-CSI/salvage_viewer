@@ -45,11 +45,17 @@ lad <- read_tsv("data/LengthCriteriaDelta_sheet1.txt") %>%
         s23_max = as.numeric(s23_max)
     )
 
+
 lad_long <- gather(lad, cohort, value, starts_with("w"), starts_with("lf"), starts_with("f"), starts_with("s"), na.rm = TRUE)
 lad_long <- separate(lad_long, cohort, into = c("cohort", "type"), sep = "_", remove = FALSE)
-lad_long <- spread(lad_long, type, value)
+lad_long <- spread(lad_long, type, value) %>%
+    mutate(
+        cohort = if_else(cohort == "lf" & date < as.Date("2024-04-01"), "lf23",
+            if_else(cohort == "lf" & date >= as.Date("2024-04-01"), "lf24", cohort)
+        )
+    )
 
-write_tsv(lad_long, "data/lad_long.txt")
+write_tsv(lad_long, "data/lad_long_WY2024.txt")
 
 # add code to plot graph
 data <- read_tsv("data/lad_long.txt")

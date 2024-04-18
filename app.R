@@ -28,7 +28,7 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output, session) {
   # Read in static LAD data
-  lad_long <- read_tsv("data/lad_long.txt")
+  lad_long <- read_tsv("data/lad_long_WY2024.txt")
 
   data <- reactive({
     req(input$file)
