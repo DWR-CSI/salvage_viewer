@@ -95,5 +95,5 @@ p
 
 excel_file %>%
     mutate(SampleDate = force_tz(SampleDate, tzone = "America/Los_Angeles"))
-tsv_files <- list.files("data", pattern = "^lad_long.*\\.txt$", full.names = TRUE)
+tsv_files <- list.files("data", pattern = "^lad_long.*\\.t$", full.names = TRUE)
 lad_long <- purrr::map_dfr(tsv_files, read_tsv)

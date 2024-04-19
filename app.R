@@ -78,7 +78,7 @@ server <- function(input, output, session) {
   p <- reactive({
     req(data(), input$color)
     lad_long_filtered <- lad_long %>%
-      filter(date >= date_range()[1] & date <= date_range()[2]) # Filter based on date range
+      filter(date >= date_range()[1] - days(2) & date <= date_range()[2] + days(2)) # Filter based on date range
 
     p <- plot_ly() %>%
       add_markers(
@@ -103,8 +103,8 @@ server <- function(input, output, session) {
         line = list(width = 0)
       ) %>%
       layout(
-        title = "Salvaged Chinook Salmon",
-        xaxis = list(title = "Sample Date", range = c(date_range()[1] - 3, date_range()[2] + 3)),
+        title = "Salvage Chinook Salmon",
+        xaxis = list(title = "Sample Date", range = c(date_range()[1] - days(3), date_range()[2] + days(3))),
         yaxis = list(title = "Fork Length"),
         showlegend = TRUE
       )
