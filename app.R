@@ -28,7 +28,8 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output, session) {
   # Read in static LAD data
-  lad_long <- read_tsv("data/lad_long_WY2024.txt")
+  tsv_files <- list.files("data", pattern = "^lad_long.*\\.txt$", full.names = TRUE)
+  lad_long <- purrr::map_dfr(tsv_files, read_tsv)
 
   data <- reactive({
     req(input$file)
@@ -37,7 +38,8 @@ server <- function(input, output, session) {
     df %>%
       mutate(
         SHERLOCK.Group = str_replace_all(SHERLOCK.Group, "\\*", ""),
-        SHERLOCK.Assignment = str_replace_all(SHERLOCK.Assignment, "\\*", "")
+        SHERLOCK.Assignment = str_replace_all(SHERLOCK.Assignment, "\\*", ""),
+        SampleDate = force_tz(SampleDate, tzone = "America/Los_Angeles")
       ) %>%
       filter(
         SHERLOCK.Group != "Likely heterozygote",
@@ -50,7 +52,7 @@ server <- function(input, output, session) {
 
   observe({ # Update selectInput choices when data is loaded
     req(data())
-    updateSelectInput(session, "color", choices = c(
+    choices <- c( # Valid and allowable choice column names
       "SHERLOCK.Assignment",
       "SHERLOCK.Group",
       "GTSeq.OTS28",
@@ -61,11 +63,22 @@ server <- function(input, output, session) {
       "GTseqEarlyAndFall",
       "GTseqLateAndSpring",
       "SH_OTS28"
-    ))
+    )
+    valid_choices <- choices[choices %in% names(data())]
+    updateSelectInput(session, "color", choices = valid_choices)
+  })
+
+  date_range <- reactive({
+    req(data())
+    min_date <- min(data()$SampleDate, na.rm = TRUE)
+    max_date <- max(data()$SampleDate, na.rm = TRUE)
+    c(min_date, max_date)
   })
 
   p <- reactive({
     req(data(), input$color)
+    lad_long_filtered <- lad_long %>%
+      filter(date >= date_range()[1] - 3 & date <= date_range()[2] + 3) # Filter based on date range
 
     p <- plot_ly() %>%
       add_markers(
@@ -79,7 +92,7 @@ server <- function(input, output, session) {
         alpha = 0.8
       ) %>%
       add_ribbons( # Add ribbons for min/max values overlaid on top of fork length
-        data = lad_long,
+        data = lad_long_filtered,
         x = ~date,
         ymin = ~min,
         ymax = ~max,
@@ -90,8 +103,8 @@ server <- function(input, output, session) {
         line = list(width = 0)
       ) %>%
       layout(
-        title = "SHERLOCK Excel Data Visualization",
-        xaxis = list(title = "Sample Date", range = c(as.Date("2023-12-25"), NULL)), # not working
+        title = "Salvaged Chinook Salmon",
+        xaxis = list(title = "Sample Date", range = c(date_range()[1] - 3, date_range()[2] + 3)),
         yaxis = list(title = "Fork Length"),
         showlegend = TRUE
       )
