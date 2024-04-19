@@ -78,7 +78,7 @@ server <- function(input, output, session) {
   p <- reactive({
     req(data(), input$color)
     lad_long_filtered <- lad_long %>%
-      filter(date >= date_range()[1] - 3 & date <= date_range()[2] + 3) # Filter based on date range
+      filter(date >= date_range()[1] & date <= date_range()[2]) # Filter based on date range
 
     p <- plot_ly() %>%
       add_markers(
