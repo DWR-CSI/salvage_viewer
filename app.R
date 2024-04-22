@@ -14,6 +14,11 @@ ui <- fluidPage(
       fileInput("file", "Choose Excel File",
         accept = c(".xlsx")
       ),
+      dateRangeInput("date_range", "Select date range:",
+        start = NULL,
+        end = NULL
+      ),
+      selectInput("model", "Select LAD size classes:", choices = NULL, multiple = TRUE),
       selectInput("color", "Select color variable:", choices = NULL)
     ),
     mainPanel(
@@ -58,6 +63,7 @@ server <- function(input, output, session) {
       "GTSeq.OTS28",
       "sexid",
       "GTSeq.Group",
+      "Model",
       "Heterozygote.",
       "Facility",
       "GTseqEarlyAndFall",
@@ -66,23 +72,34 @@ server <- function(input, output, session) {
     )
     valid_choices <- choices[choices %in% names(data())]
     updateSelectInput(session, "color", choices = valid_choices)
-  })
 
-  date_range <- reactive({
-    req(data())
-    min_date <- min(data()$SampleDate, na.rm = TRUE)
-    max_date <- max(data()$SampleDate, na.rm = TRUE)
-    c(min_date, max_date)
+    model_choices <- data() %>%
+      pull(Model) %>%
+      unique() %>%
+      sort()
+    updateSelectInput(session, "model", choices = model_choices, selected = model_choices)
+
+    updateDateRangeInput(
+      session,
+      "date_range",
+      start = as.Date(min(data()$SampleDate, na.rm = TRUE), tz = "America/Los_Angeles"),
+      end = as.Date(max(data()$SampleDate, na.rm = TRUE), tz = "America/Los_Angeles"),
+      min = as.Date(min(data()$SampleDate, na.rm = TRUE), tz = "America/Los_Angeles"),
+      max = as.Date(max(data()$SampleDate, na.rm = TRUE), tz = "America/Los_Angeles")
+    )
   })
 
   p <- reactive({
     req(data(), input$color)
     lad_long_filtered <- lad_long %>%
-      filter(date >= date_range()[1] - days(2) & date <= date_range()[2] + days(2)) # Filter based on date range
+      filter(
+        date >= input$date_range[1],
+        date <= input$date_range[2] # Filter based on date range
+      )
 
     p <- plot_ly() %>%
       add_markers(
-        data = data(),
+        data = data() %>% filter(Model %in% input$model),
         x = ~SampleDate,
         y = ~ForkLength,
         color = ~ get(input$color),
@@ -104,7 +121,7 @@ server <- function(input, output, session) {
       ) %>%
       layout(
         title = "Salvage Chinook Salmon",
-        xaxis = list(title = "Sample Date", range = c(date_range()[1] - days(3), date_range()[2] + days(3))),
+        xaxis = list(title = "Sample Date", range = c(input$date_range[1] - days(3), input$date_range[2] + days(3))),
         yaxis = list(title = "Fork Length"),
         showlegend = TRUE
       )
