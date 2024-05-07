@@ -44,7 +44,20 @@ server <- function(input, output, session) {
       mutate(
         SHERLOCK.Group = str_replace_all(SHERLOCK.Group, "\\*", ""),
         SHERLOCK.Assignment = str_replace_all(SHERLOCK.Assignment, "\\*", ""),
-        SampleDate = force_tz(SampleDate, tzone = "America/Los_Angeles")
+        SampleDate = force_tz(SampleDate, tzone = "America/Los_Angeles"),
+        GTSeq.Assignment = if_else(
+          GTSeq.Assignment == "Non-winter",
+          "Non-Winter",
+          GTSeq.Assignment
+          ),
+        GTSeq.OTS28 = tools::toTitleCase(GTSeq.OTS28),
+        SH_greb1l = case_when(
+          SH..OTS.28 == "Early / Early" ~ "Early",
+          SH..OTS.28 == "Late / Late" ~ "Late",
+          SH..OTS.28 == "Early / Late" ~ "Intermediate",
+          TRUE ~ "Other"
+          )
+
       ) %>%
       filter(
         SHERLOCK.Group != "Likely heterozygote",
@@ -62,6 +75,7 @@ server <- function(input, output, session) {
       "SHERLOCK.Group",
       "GTSeq.OTS28",
       "sexid",
+      "GTSeq.Assignment",
       "GTSeq.Group",
       "Model",
       "Heterozygote.",
@@ -91,33 +105,63 @@ server <- function(input, output, session) {
 
   p <- reactive({
     req(data(), input$color)
+    prerun_color_palette <- RColorBrewer::brewer.pal(9, "Set1")
+    run_color_mapping <- c(
+      "Fall / Late Fall" = prerun_color_palette[5],
+      "Fall" = "#c9b428",
+      "Late Fall" = prerun_color_palette[7],
+      "Spring" = prerun_color_palette[3],
+      "Winter" = prerun_color_palette[2],
+      "f22" = prerun_color_palette[6],
+      "f23" = prerun_color_palette[6],
+      "lf23" = prerun_color_palette[7],
+      "s23" = prerun_color_palette[3],
+      "w23" = prerun_color_palette[2],
+      "lf24" = prerun_color_palette[7],
+      "Non-Winter" = prerun_color_palette[9],
+      "Early" = prerun_color_palette[2],
+      "Intermediate" = "#c9b428",
+      "Late" = prerun_color_palette[5],
+      "Latefall" = prerun_color_palette[7],
+      "female" = prerun_color_palette[1],
+      "male" = prerun_color_palette[2],
+      "TRUE" = prerun_color_palette[1],
+      "FALSE" = prerun_color_palette[9],
+      "CVP" = prerun_color_palette[2],
+      "SWP" = prerun_color_palette[1],
+      "Early / Early" = prerun_color_palette[2],
+      "Late / Late" = prerun_color_palette[5],
+      "Early / Late" = "#c9b428",
+      "NA" = prerun_color_palette[9]
+      )
     lad_long_filtered <- lad_long %>%
       filter(
         date >= input$date_range[1],
         date <= input$date_range[2] # Filter based on date range
       )
 
-    p <- plot_ly() %>%
-      add_markers(
-        data = data() %>% filter(Model %in% input$model),
-        x = ~SampleDate,
-        y = ~ForkLength,
-        color = ~ get(input$color),
-        colors = "Paired",
-        text = ~ID,
-        size = I(20),
-        alpha = 0.8
-      ) %>%
+    p <- plot_ly(colors = run_color_mapping) %>%
       add_ribbons( # Add ribbons for min/max values overlaid on top of fork length
         data = lad_long_filtered,
         x = ~date,
         ymin = ~min,
         ymax = ~max,
         color = ~cohort,
+        colors = run_color_mapping,
         showlegend = TRUE,
         alpha = 0.2,
         size = 0.1,
         line = list(width = 0)
+      ) %>%
+      add_markers(
+        data = data() %>% filter(Model %in% input$model),
+        x = ~SampleDate,
+        y = ~ForkLength,
+        color = ~ get(input$color),
+        colors = run_color_mapping,
+        text = ~ID,
+        size = I(20),
+        alpha = 0.8
       ) %>%
       layout(
         title = "Salvage Chinook Salmon",
